@@ -14,9 +14,10 @@ void stomp_session_init() {
 int stomp_session_is_connected(int fd) {
     int i, c, n;
     // find the bit
-    for (i = 0, c = fd; c > 0; i++, c = c / 64, n = c % 64);
+    for (i = -1, c = fd; c > 0; i++, n = c % 64, c = c / 64);
 
-    uint64_t mask = 1U << n;
+    uint64_t mask = 1U << (n%32);
+    if(n>=32) mask*= ((uint64_t)UINT32_MAX+1);
 
     return session_connected[i] & mask;
 }
@@ -24,10 +25,14 @@ int stomp_session_is_connected(int fd) {
 void stomp_session_set_connected(int fd, int connected) {
     int i, c, n;
     // find the bit
-    for (i = 0, c = fd; c > 0; i++, c = c / 64, n = c % 64);
+    for (i = -1, c = fd; c > 0; i++, n = c % 64, c = c / 64);
+    
+    uint64_t mask = 1U << (n%32);
+    if(n>=32) mask*= ((uint64_t)UINT32_MAX+1);
 
-    uint64_t mask = 1U << n;
-    if (connected == 0) mask ^= UINT64_MAX;
+    if (connected == 0){
+        mask ^= UINT64_MAX;
+    }
 
     // erase or set the bit
     session_connected[i] = connected == 0 ? session_connected[i] & mask : session_connected[i] | mask;
@@ -41,6 +46,7 @@ int stomp_session_connected_size() {
         uint64_t b = session_connected[i];
         if (one & b) n++;
         for (int j = 1; j < 63; j++) {
+            // FIXME shifting > 32!
             if ((one << j) & b) {
                 n++;
             }
